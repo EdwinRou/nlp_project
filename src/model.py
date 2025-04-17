@@ -1,5 +1,6 @@
 import numpy as np
 from typing import List, Dict
+from tqdm import tqdm
 
 class SimpleSentimentClassifier:
     def __init__(self, vocab: Dict[str, int], max_words: int = 10000):
@@ -27,47 +28,76 @@ class SimpleSentimentClassifier:
             vector[idx] += 1
         return vector
     
-    def train(self, texts: List[str], labels: List[int], learning_rate: float = 0.01, num_epochs: int = 10):
+    def train(self, texts: List[str], labels: List[int], learning_rate: float = 0.01, num_epochs: int = 10, batch_size: int = 32):
         """
-        Train the classifier using simple logistic regression
+        Train the classifier using batch gradient descent
         Args:
             texts: List of input texts
             labels: List of binary labels (0 or 1)
             learning_rate: Learning rate for gradient descent
             num_epochs: Number of training epochs
+            batch_size: Number of examples per batch
         """
-        for epoch in range(num_epochs):
+        num_examples = len(texts)
+        indices = list(range(num_examples))
+        
+        for epoch in tqdm(range(num_epochs), desc="Training epochs"):
             total_loss = 0
-            for text, label in zip(texts, labels):
+            np.random.shuffle(indices)
+            
+            # Process mini-batches
+            for start_idx in tqdm(range(0, num_examples, batch_size), desc=f"Epoch {epoch+1}", leave=False):
+                batch_indices = indices[start_idx:start_idx + batch_size]
+                batch_size_actual = len(batch_indices)
+                
+                # Convert batch of texts to bag-of-words
+                X = np.zeros((batch_size_actual, self.max_words))
+                for i, idx in enumerate(batch_indices):
+                    X[i] = self._text_to_bow(texts[idx])
+                
+                batch_labels = np.array([labels[idx] for idx in batch_indices])
+                
                 # Forward pass
-                x = self._text_to_bow(text)
-                pred = self._sigmoid(np.dot(x, self.word_weights))
+                preds = self._sigmoid(np.dot(X, self.word_weights))
                 
                 # Compute loss
-                loss = -label * np.log(pred + 1e-10) - (1 - label) * np.log(1 - pred + 1e-10)
-                total_loss += loss
+                loss = -np.mean(
+                    batch_labels * np.log(preds + 1e-10) + 
+                    (1 - batch_labels) * np.log(1 - preds + 1e-10)
+                )
+                total_loss += loss * batch_size_actual
                 
                 # Backward pass
-                error = pred - label
-                grad = error * x
+                errors = preds - batch_labels
+                grad = np.dot(X.T, errors) / batch_size_actual
                 self.word_weights -= learning_rate * grad
             
-            avg_loss = total_loss / len(texts)
+            avg_loss = total_loss / num_examples
             print(f"Epoch {epoch+1}/{num_epochs}, Loss: {avg_loss:.4f}")
     
-    def predict(self, texts: List[str]) -> List[int]:
+    def predict(self, texts: List[str], batch_size: int = 32) -> List[int]:
         """
         Predict sentiment for input texts
         Args:
             texts: List of input texts
+            batch_size: Number of examples per batch
         Returns:
             List of predicted labels (0 or 1)
         """
         predictions = []
-        for text in texts:
-            x = self._text_to_bow(text)
-            pred = self._sigmoid(np.dot(x, self.word_weights))
-            predictions.append(1 if pred >= 0.5 else 0)
+        for start_idx in range(0, len(texts), batch_size):
+            batch_texts = texts[start_idx:start_idx + batch_size]
+            batch_size_actual = len(batch_texts)
+            
+            # Convert batch of texts to bag-of-words
+            X = np.zeros((batch_size_actual, self.max_words))
+            for i, text in enumerate(batch_texts):
+                X[i] = self._text_to_bow(text)
+            
+            # Get predictions
+            preds = self._sigmoid(np.dot(X, self.word_weights))
+            predictions.extend([1 if p >= 0.5 else 0 for p in preds])
+        
         return predictions
     
     def _sigmoid(self, x: float) -> float:
