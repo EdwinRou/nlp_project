@@ -1,9 +1,10 @@
 import numpy as np
 from typing import List, Dict
 from tqdm import tqdm
+from preprocessor import TextPreprocessor
 
 class SimpleSentimentClassifier:
-    def __init__(self, vocab: Dict[str, int], max_words: int = 10000):
+    def __init__(self, vocab: Dict[str, int], max_words: int = 10000, use_preprocessing: bool = True):
         """
         Initialize a simple bag-of-words sentiment classifier
         Args:
@@ -13,6 +14,9 @@ class SimpleSentimentClassifier:
         self.vocab = vocab
         self.max_words = max_words
         self.word_weights = np.zeros(max_words)
+        self.use_preprocessing = use_preprocessing
+        if use_preprocessing:
+            self.preprocessor = TextPreprocessor(remove_stopwords=True, lemmatize=True)
         
     def _text_to_bow(self, text: str) -> np.ndarray:
         """
@@ -23,7 +27,14 @@ class SimpleSentimentClassifier:
             Bag-of-words vector
         """
         vector = np.zeros(self.max_words)
-        for word in text.split():
+        
+        # Preprocess text if enabled
+        if self.use_preprocessing:
+            processed_text = self.preprocessor.preprocess([text])[0]
+        else:
+            processed_text = text
+            
+        for word in processed_text.split():
             idx = self.vocab.get(word, self.vocab["<UNK>"])
             vector[idx] += 1
         return vector
