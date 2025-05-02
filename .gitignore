@@ -4,6 +4,16 @@ src/__pycache__
 # Model checkpoints and large files
 results/checkpoint-*/optimizer.pt
 results/checkpoint-*/model.safetensors
+results/checkpoint-*/rng_state.pth
 *.pt
 *.bin
 *.safetensors
+
+# LaTeX build files
+*.aux
+*.log
+*.out
+
+# Python
+__pycache__/
+*.py[cod]
