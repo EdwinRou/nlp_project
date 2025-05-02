@@ -1,2 +1,9 @@
 data/aclImdb
 src/__pycache__
+
+# Model checkpoints and large files
+results/checkpoint-*/optimizer.pt
+results/checkpoint-*/model.safetensors
+*.pt
+*.bin
+*.safetensors
