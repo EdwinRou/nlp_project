@@ -6,3 +6,5 @@ matplotlib>=3.8.0  # For plotting
 seaborn>=0.13.0  # For statistical visualizations
 wordcloud>=1.9.0  # For word cloud generation
 nltk>=3.8.0  # For text processing
+torch>=2.0.0  # Deep learning framework
+transformers>=4.30.0  # Hugging Face transformers library

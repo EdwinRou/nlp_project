@@ -1,9 +1,9 @@
 import os
-import re
 from typing import Tuple, List, Dict
+from torch.utils.data import Dataset
 from collections import Counter
 
-class IMDBDataset:
+class IMDBDataset(Dataset):
     def __init__(self, data_dir: str = "data/aclImdb"):
         """
         Initialize the IMDB dataset loader
@@ -14,25 +14,15 @@ class IMDBDataset:
         self.train_dir = os.path.join(data_dir, "train")
         self.test_dir = os.path.join(data_dir, "test")
     
-    def _clean_text(self, text: str) -> str:
+    def _read_text(self, text: str) -> str:
         """
-        Basic text cleaning
-        Args:
-            text: Input text string
-        Returns:
-            Cleaned text string
+        Minimal text cleaning, let BERT tokenizer handle the rest
         """
-        # Convert to lowercase
-        text = text.lower()
-        # Remove HTML tags
-        text = re.sub(r'<[^>]+>', '', text)
-        # Remove special characters and digits
-        text = re.sub(r'[^a-zA-Z\s]', ' ', text)
-        # Remove extra whitespace
-        text = ' '.join(text.split())
-        return text
+        # Just remove HTML tags and extra whitespace
+        text = text.replace('<br />', ' ')
+        return ' '.join(text.split())
 
-    def load_data(self, split: str = "train") -> Tuple[List[str], List[int]]:
+    def load_data(self, split: str = "train", limit: int = None) -> Tuple[List[str], List[int]]:
         """
         Load data from the specified split
         Args:
@@ -49,7 +39,7 @@ class IMDBDataset:
             if filename.endswith(".txt"):
                 with open(os.path.join(pos_dir, filename), 'r', encoding='utf-8') as f:
                     text = f.read()
-                    texts.append(self._clean_text(text))
+                    texts.append(self._read_text(text))
                     labels.append(1)
         
         # Load negative reviews
@@ -58,10 +48,22 @@ class IMDBDataset:
             if filename.endswith(".txt"):
                 with open(os.path.join(neg_dir, filename), 'r', encoding='utf-8') as f:
                     text = f.read()
-                    texts.append(self._clean_text(text))
-                    labels.append(0)
+                    texts.append(self._read_text(text))
+                    labels.append(0)        # Optionally limit dataset size
+        if limit:
+            pos_indices = [i for i, label in enumerate(labels) if label == 1][:limit//2]
+            neg_indices = [i for i, label in enumerate(labels) if label == 0][:limit//2]
+            indices = pos_indices + neg_indices
+            texts = [texts[i] for i in indices]
+            labels = [labels[i] for i in indices]
         
         return texts, labels
+
+    def __len__(self):
+        return len(self.texts) if hasattr(self, 'texts') else 0
+
+    def __getitem__(self, idx):
+        return self.texts[idx], self.labels[idx]
 
     def get_vocabulary(self, texts: List[str], max_features: int = 10000) -> Dict[str, int]:
         """
